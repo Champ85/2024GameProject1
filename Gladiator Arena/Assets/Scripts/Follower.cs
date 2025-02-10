@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Follower : MonoBehaviour
 {
-    [SerializeField] private Rigidbody target;
+    [SerializeField] private Transform target;
 
     void FixedUpdate()
     {
