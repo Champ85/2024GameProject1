@@ -5,34 +5,45 @@ using UnityEngine.InputSystem;
 
 public class PlayerAttack : MonoBehaviour
 {
-    private PlayerActions playerActions;
-    private InputAction attackAction;
-    private Weapon weapon;
+    [SerializeField] private Collider weaponCollider;
+    [SerializeField] private float strength = 1;
+    [SerializeField] private float attackDelay = 0.87f;
+
     private Animator animator;
     
     void Awake()
     {
-        weapon = GetComponentInChildren<Weapon>();
         animator = GetComponentInChildren<Animator>();
-
-        playerActions = new PlayerActions();
-        attackAction = playerActions.Game.Attack;
-        attackAction.performed += AttackPressed;
+        weaponCollider.enabled = false;
     }
 
-    void OnEnable()
+    public void StartAttack()
     {
-        attackAction.Enable();
+        StartCoroutine(Attack());
     }
 
-    void OnDisable()
+    IEnumerator Attack()
     {
-        attackAction.Disable();
+        PlayerController player = GetComponent<PlayerController>();
+        player.attacking = true;
+        weaponCollider.enabled = true;
+        animator?.SetTrigger("Attack");
+        float delay = attackDelay;
+        while(delay > 0)
+        {
+            delay -= Time.deltaTime;
+            yield return null;
+        }
+        weaponCollider.enabled = false;
+        player.attacking = false;
     }
 
-    void AttackPressed(InputAction.CallbackContext context)
+    void OnTriggerEnter(Collider collider)
     {
-        weapon.ToggleAttacking(true);
-        animator.SetTrigger("Attack");
+        Health h = collider.GetComponentInParent<Health>();
+        if(h != null)
+        {
+            h.TakeDamage(strength);
+        }
     }
 }

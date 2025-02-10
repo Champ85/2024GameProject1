@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
-
+[RequireComponent(typeof(Health))]
 
 public class PlayerController : MonoBehaviour
 {
@@ -13,6 +13,7 @@ public class PlayerController : MonoBehaviour
         private InputAction moveAction;
         private InputAction turnAction;
         private InputAction jumpAction;
+        private InputAction attackAction;
     #endregion
 
     #region parameters
@@ -23,6 +24,7 @@ public class PlayerController : MonoBehaviour
         [SerializeField] private float jumpHeight = 2.0f;
         [SerializeField] private float bufferTime = 0.1f;
         [SerializeField] private float coyoteTime = 0.1f;
+        public bool attacking = false;
     #endregion
 
     #region private variables
@@ -32,6 +34,7 @@ public class PlayerController : MonoBehaviour
         private bool jump = false;
         private float bufferTimer = 0.0f;
         private float coyoteTimer = 0.0f;
+        private float yRotation;
     #endregion
 
     #region consts
@@ -51,9 +54,14 @@ public class PlayerController : MonoBehaviour
             turnAction = playerActions.Game.Turning;
             jumpAction = playerActions.Game.Jump;
             jumpAction.performed += JumpPressed;
+            attackAction = playerActions.Game.Attack;
+            attackAction.performed += AttackPressed;
+
+            //set events
             health.HitCallback += OnHit;
             health.DeathCallback += OnDie;
 
+            yRotation = transform.rotation.y;
         }
 
         private void OnEnable()
@@ -61,6 +69,7 @@ public class PlayerController : MonoBehaviour
             moveAction.Enable();
             turnAction.Enable();
             jumpAction.Enable();
+            attackAction.Enable();
         }
 
         private void OnDisable()
@@ -68,6 +77,7 @@ public class PlayerController : MonoBehaviour
             moveAction.Disable();
             turnAction.Disable();
             jumpAction.Disable();
+            attackAction.Disable();
         }
     #endregion
 
@@ -75,10 +85,11 @@ public class PlayerController : MonoBehaviour
         private void FixedUpdate()
         {
             //turning
-            float yRotation = turnAction.ReadValue<Vector2>().x * turningRate;
+            yRotation += turnAction.ReadValue<Vector2>().x * turningRate;
             Quaternion target = Quaternion.Euler(0, yRotation, 0);
             transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.fixedDeltaTime * rotateSpeed);
 
+            //horizontalmovemn
             Vector3 movement = new Vector3(moveAction.ReadValue<Vector2>().x * speed, controller.velocity.y, moveAction.ReadValue<Vector2>().y * speed);
             movement = transform.TransformDirection(movement);
 
@@ -93,8 +104,8 @@ public class PlayerController : MonoBehaviour
                 } 
                 else //keep jump at true until the bufferTimer reaches bufferTime
                 {
-                    bufferTimer += Time.fixedDeltaTime;
-                    if(bufferTimer >= bufferTime)
+                    bufferTimer -= Time.fixedDeltaTime;
+                    if(bufferTimer <= 0)
                     {
                         jump = false;
                     }
@@ -108,7 +119,10 @@ public class PlayerController : MonoBehaviour
             movement.y += gravity * Time.fixedDeltaTime;//apply gravity
             movement.y = Mathf.Max(movement.y, maxFallSpeed);//do not let falling speed exceed maxFallSpeed
 
-            controller.Move(movement * Time.fixedDeltaTime);
+            if(!attacking)
+            {
+                controller.Move(movement * Time.fixedDeltaTime);
+            }
 
             //Animation
             animator?.SetInteger("MoveX", Mathf.RoundToInt(moveAction.ReadValue<Vector2>().x));
@@ -121,7 +135,7 @@ public class PlayerController : MonoBehaviour
         private void JumpPressed(InputAction.CallbackContext context)
         {
             jump = true;
-            bufferTimer = 0.0f;
+            bufferTimer = bufferTime;
         }
 
         private void OnHit()
@@ -132,6 +146,15 @@ public class PlayerController : MonoBehaviour
         private void OnDie()
         {
             animator?.SetTrigger("Death");
+        }
+
+        private void AttackPressed(InputAction.CallbackContext context)
+        {
+            PlayerAttack pAttack = GetComponent<PlayerAttack>();
+            if(pAttack && !attacking && controller.isGrounded)
+            {
+                pAttack.StartAttack();
+            }
         }
     #endregion
 }
